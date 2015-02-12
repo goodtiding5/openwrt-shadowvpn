@@ -4,28 +4,27 @@
 # All key value pairs in ShadowVPN config file will be passed to this script
 # as environment variables, except password.
 
+SHADOW_SERVER=10.7.0.1
+SHADOW_CLIENT=10.7.0.2
+SHADOW_MASK=255.255.255.0
+
 PID=$(cat $pidfile 2>/dev/null)
 loger() {
 	echo "$(date '+%c') up.$1 ShadowVPN[$PID] $2"
 }
 
 # Configure IP address and MTU of VPN interface
-ifconfig $intf 10.7.0.2 netmask 255.255.255.0
+ifconfig $intf $SHADOW_CLIENT netmask $SHADOW_MASK
 ifconfig $intf mtu $mtu
 
-# Get original gateway
-device=$(ip route show 0/0 | grep via | sed -e 's/.* dev \([^ ]*\).*/\1/')
-gateway=$(ip route show 0/0 | grep via | sed -e 's/.* via \([^ ]*\).*/\1/')
+# Get original default device and gateway
+device=$(ip route show 0/0 | grep via | awk '{ print $5 }')
+gateway=$(ip route show 0/0 | grep via | awk '{ print $3 }')
 loger info "The default gateway: via $gateway dev $device"
 
-# Get uci setting
+# Get uci setting for routing mode and definition file
 route_mode=$(uci get shadowvpn.@shadowvpn[-1].route_mode 2>/dev/null)
 route_file=$(uci get shadowvpn.@shadowvpn[-1].route_file 2>/dev/null)
-
-# Save uci setting
-uci set shadowvpn.@shadowvpn[-1].device_save=$device
-uci set shadowvpn.@shadowvpn[-1].route_mode_save=$route_mode
-uci commit shadowvpn
 
 # Turn on NAT over VPN
 iptables -t nat -A POSTROUTING -o $intf -j MASQUERADE
@@ -36,12 +35,12 @@ loger notice "Turn on NAT over $intf"
 # Change routing table
 ip route add $server via $gateway
 if [ "$route_mode" != 2 ]; then
-	ip route add 0.0.0.0/1 via 10.7.0.1
-	ip route add 128.0.0.0/1 via 10.7.0.1
-	loger notice "Default route changed to 10.7.0.1"
+	ip route add 0.0.0.0/1 via $SHADOW_SERVER
+	ip route add 128.0.0.0/1 via $SHADOW_SERVER
+	loger notice "Default route changed to $SHADOW_SERVER"
 	suf="via $gateway"
 else
-	suf="via 10.7.0.1"
+	suf="via $SHADOW_SERVER"
 fi
 
 # Load route rules

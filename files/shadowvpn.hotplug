@@ -2,7 +2,7 @@
 
 [ "$ACTION" = ifup ] || exit 0
 
-device=$(uci get shadowvpn.@shadowvpn[-1].device_save 2>/dev/null)
+device=$(uci get shadowvpn.@shadowvpn[-1].device 2>/dev/null)
 
 [ -n "$device" -a "$DEVICE" = "$device" ] || exit 0
 
